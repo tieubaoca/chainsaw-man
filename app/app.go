@@ -282,7 +282,7 @@ type App struct {
 	FeeGrantKeeper        feegrantkeeper.Keeper
 	GroupKeeper           groupkeeper.Keeper
 	ConsensusParamsKeeper consensusparamkeeper.Keeper
-	Nftkeeper             nftkeeper.Keeper
+	NftKeeper             nftkeeper.Keeper
 
 	IBCKeeper           *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	IBCFeeKeeper        ibcfeekeeper.Keeper
@@ -613,7 +613,7 @@ func New(
 		wasmOpts...,
 	)
 
-	app.Nftkeeper = nftkeeper.NewKeeper(
+	app.NftKeeper = nftkeeper.NewKeeper(
 		keys[nft.StoreKey],
 		appCodec,
 		app.AccountKeeper,
@@ -708,7 +708,7 @@ func New(
 		transferModule,
 		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		icaModule,
-		nftmodule.NewAppModule(appCodec, app.Nftkeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
+		nftmodule.NewAppModule(appCodec, app.NftKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
