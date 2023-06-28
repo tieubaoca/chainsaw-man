@@ -1,0 +1,7 @@
+syntax = "proto3";
+package saw.citizen;
+
+option go_package = "gitlab.com/onechain/saw/x/citizen/types";
+
+// Msg defines the Msg service.
+service Msg {}

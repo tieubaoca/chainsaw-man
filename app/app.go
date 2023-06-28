@@ -127,6 +127,9 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
+	citizenmodule "gitlab.com/onechain/saw/x/citizen"
+	citizenmodulekeeper "gitlab.com/onechain/saw/x/citizen/keeper"
+	citizenmoduletypes "gitlab.com/onechain/saw/x/citizen/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	"gitlab.com/onechain/saw/docs"
@@ -217,6 +220,7 @@ var (
 		nftmodule.AppModuleBasic{},
 		ibcfee.AppModuleBasic{},
 		wasm.AppModuleBasic{},
+		citizenmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -232,6 +236,7 @@ var (
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		nft.ModuleName:                 nil,
 		wasm.ModuleName:                {authtypes.Burner}, //wasm
+		citizenmoduletypes.ModuleName:  {authtypes.Minter, authtypes.Burner, authtypes.Staking},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -298,6 +303,7 @@ type App struct {
 	ScopedIBCFeeKeeper        capabilitykeeper.ScopedKeeper
 	ScopedWasmKeeper          capabilitykeeper.ScopedKeeper
 
+	CitizenKeeper citizenmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// mm is the module manager
@@ -344,6 +350,7 @@ func New(
 		feegrant.StoreKey, evidencetypes.StoreKey, ibctransfertypes.StoreKey, icahosttypes.StoreKey,
 		capabilitytypes.StoreKey, group.StoreKey, icacontrollertypes.StoreKey, consensusparamtypes.StoreKey,
 		nft.StoreKey, wasm.StoreKey,
+		citizenmoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -620,6 +627,18 @@ func New(
 		app.BankKeeper,
 	)
 
+	app.CitizenKeeper = *citizenmodulekeeper.NewKeeper(
+		appCodec,
+		keys[citizenmoduletypes.StoreKey],
+		keys[citizenmoduletypes.MemStoreKey],
+		app.GetSubspace(citizenmoduletypes.ModuleName),
+
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.NftKeeper,
+	)
+	citizenModule := citizenmodule.NewAppModule(appCodec, app.CitizenKeeper, app.AccountKeeper, app.BankKeeper)
+
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
@@ -709,6 +728,7 @@ func New(
 		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		icaModule,
 		nftmodule.NewAppModule(appCodec, app.NftKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
+		citizenModule,
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
@@ -744,6 +764,7 @@ func New(
 		nft.ModuleName,
 		ibcfeetypes.ModuleName,
 		wasm.ModuleName,
+		citizenmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	)
 
@@ -772,6 +793,7 @@ func New(
 		nft.ModuleName,
 		ibcfeetypes.ModuleName,
 		wasm.ModuleName,
+		citizenmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
 
@@ -805,6 +827,7 @@ func New(
 		nft.ModuleName,
 		ibcfeetypes.ModuleName,
 		wasm.ModuleName,
+		citizenmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 	app.mm.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1050,6 +1073,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(icahosttypes.SubModuleName)
 	paramsKeeper.Subspace(nft.ModuleName)
 	paramsKeeper.Subspace(wasm.ModuleName)
+	paramsKeeper.Subspace(citizenmoduletypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
 
 	return paramsKeeper

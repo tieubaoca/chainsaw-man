@@ -1,0 +1,12 @@
+syntax = "proto3";
+package saw.citizen;
+
+import "gogoproto/gogo.proto";
+import "saw/citizen/params.proto";
+
+option go_package = "gitlab.com/onechain/saw/x/citizen/types";
+
+// GenesisState defines the citizen module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
