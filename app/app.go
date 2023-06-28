@@ -569,7 +569,13 @@ func New(
 		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.ParamsKeeper)).
 		AddRoute(upgradetypes.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.UpgradeKeeper)).
 		AddRoute(ibcclienttypes.RouterKey, ibcclient.NewClientProposalHandler(app.IBCKeeper.ClientKeeper))
+	// The gov proposal types can be individually enabled
+	if len(enabledProposals) != 0 {
+		govRouter.AddRoute(wasm.RouterKey, wasm.NewWasmProposalHandler(app.WasmKeeper, enabledProposals))
+	}
 	govKeeper.SetLegacyRouter(govRouter)
+	// Sealing prevents other modules from creating scoped sub-keepers
+	app.CapabilityKeeper.Seal()
 
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
@@ -606,10 +612,6 @@ func New(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		wasmOpts...,
 	)
-	// The gov proposal types can be individually enabled
-	if len(enabledProposals) != 0 {
-		govRouter.AddRoute(wasm.RouterKey, wasm.NewWasmProposalHandler(app.WasmKeeper, enabledProposals))
-	}
 
 	app.NFTkeeper = nftkeeper.NewKeeper(
 		keys[nft.StoreKey],
@@ -621,9 +623,6 @@ func New(
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
-
-	// Sealing prevents other modules from creating scoped sub-keepers
-	app.CapabilityKeeper.Seal()
 
 	// Have no idea what this does
 	// Create Transfer Stack

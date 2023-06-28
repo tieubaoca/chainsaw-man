@@ -3,16 +3,15 @@ package app_test
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/CosmWasm/wasmd/x/wasm"
 	dbm "github.com/cometbft/cometbft-db"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -20,6 +19,7 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	simulationtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
@@ -38,6 +38,11 @@ import (
 
 	"gitlab.com/onechain/saw/app"
 )
+
+// SimAppChainID hardcoded chainID for simulation
+const SimAppChainID = "simulation-app"
+
+var emptyWasmOpts []wasm.Option
 
 type storeKeysPrefixes struct {
 	A        storetypes.StoreKey
@@ -68,7 +73,7 @@ func BenchmarkSimulation(b *testing.B) {
 	simcli.FlagEnabledValue = true
 
 	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp"
+	config.ChainID = SimAppChainID
 	db, dir, logger, _, err := simtestutil.SetupSimulation(
 		config,
 		"leveldb-bApp-sim",
@@ -84,21 +89,10 @@ func BenchmarkSimulation(b *testing.B) {
 	})
 
 	appOptions := make(simtestutil.AppOptionsMap, 0)
-	appOptions[flags.FlagHome] = app.DefaultNodeHome
+	appOptions[flags.FlagHome] = dir // ensure a unique folder
 	appOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
 
-	bApp := app.New(
-		logger,
-		db,
-		nil,
-		true,
-		map[int64]bool{},
-		app.DefaultNodeHome,
-		0,
-		app.MakeEncodingConfig(),
-		appOptions,
-		baseapp.SetChainID(config.ChainID),
-	)
+	bApp := app.New(logger, db, nil, true, wasm.EnableAllProposals, appOptions, emptyWasmOpts, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
 	require.Equal(b, app.Name, bApp.Name())
 
 	// run randomized simulation
@@ -133,14 +127,7 @@ func TestAppStateDeterminism(t *testing.T) {
 		t.Skip("skipping application simulation")
 	}
 
-	config := simcli.NewConfigFromFlags()
-	config.InitialBlockHeight = 1
-	config.ExportParamsPath = ""
-	config.OnOperation = true
-	config.AllInvariants = true
-
 	var (
-		r                    = rand.New(rand.NewSource(time.Now().Unix()))
 		numSeeds             = 3
 		numTimesToRunPerSeed = 5
 		appHashList          = make([]json.RawMessage, numTimesToRunPerSeed)
@@ -150,32 +137,10 @@ func TestAppStateDeterminism(t *testing.T) {
 	appOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
 
 	for i := 0; i < numSeeds; i++ {
-		config.Seed = r.Int63()
 
 		for j := 0; j < numTimesToRunPerSeed; j++ {
-			var logger log.Logger
-			if simcli.FlagVerboseValue {
-				logger = log.TestingLogger()
-			} else {
-				logger = log.NewNopLogger()
-			}
-			chainID := fmt.Sprintf("chain-id-%d-%d", i, j)
-			config.ChainID = chainID
 
-			db := dbm.NewMemDB()
-			bApp := app.New(
-				logger,
-				db,
-				nil,
-				true,
-				map[int64]bool{},
-				app.DefaultNodeHome,
-				simcli.FlagPeriodValue,
-				app.MakeEncodingConfig(),
-				appOptions,
-				fauxMerkleModeOpt,
-				baseapp.SetChainID(chainID),
-			)
+			config, db, _, bApp := setupSimulationApp(t, "skipping application simulation")
 
 			fmt.Printf(
 				"running non-determinism simulation; seed %d: %d/%d, attempt: %d/%d\n",
@@ -217,43 +182,22 @@ func TestAppStateDeterminism(t *testing.T) {
 }
 
 func TestAppImportExport(t *testing.T) {
-	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp-import"
 
-	db, dir, logger, skip, err := simtestutil.SetupSimulation(
+	config, db, _, bApp := setupSimulationApp(t, "skipping application import/export simulation")
+	require.Equal(t, app.Name, bApp.Name())
+	db, dir, logger, _, err := simtestutil.SetupSimulation(
 		config,
 		"leveldb-app-sim",
 		"Simulation",
 		simcli.FlagVerboseValue,
 		simcli.FlagEnabledValue,
 	)
-	if skip {
-		t.Skip("skipping application import/export simulation")
-	}
 	require.NoError(t, err, "simulation setup failed")
 
 	defer func() {
 		require.NoError(t, db.Close())
 		require.NoError(t, os.RemoveAll(dir))
 	}()
-
-	appOptions := make(simtestutil.AppOptionsMap, 0)
-	appOptions[flags.FlagHome] = app.DefaultNodeHome
-	appOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
-
-	bApp := app.New(
-		logger,
-		db,
-		nil,
-		true,
-		map[int64]bool{},
-		app.DefaultNodeHome,
-		0,
-		app.MakeEncodingConfig(),
-		appOptions,
-		baseapp.SetChainID(config.ChainID),
-	)
-	require.Equal(t, app.Name, bApp.Name())
 
 	// run randomized simulation
 	_, simParams, simErr := simulation.SimulateFromSeed(
@@ -302,18 +246,7 @@ func TestAppImportExport(t *testing.T) {
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
-	newApp := app.New(
-		log.NewNopLogger(),
-		newDB,
-		nil,
-		true,
-		map[int64]bool{},
-		app.DefaultNodeHome,
-		0,
-		app.MakeEncodingConfig(),
-		appOptions,
-		baseapp.SetChainID(config.ChainID),
-	)
+	_, _, _, newApp := setupSimulationApp(t, "skipping application import/export simulation")
 	require.Equal(t, app.Name, bApp.Name())
 
 	var genesisState app.GenesisState
@@ -371,44 +304,22 @@ func TestAppImportExport(t *testing.T) {
 }
 
 func TestAppSimulationAfterImport(t *testing.T) {
-	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp-after-import"
 
-	db, dir, logger, skip, err := simtestutil.SetupSimulation(
+	config, db, _, bApp := setupSimulationApp(t, "skipping application simulation after import")
+	require.Equal(t, app.Name, bApp.Name())
+	_, dir, _, _, err := simtestutil.SetupSimulation(
 		config,
 		"leveldb-app-sim",
 		"Simulation",
 		simcli.FlagVerboseValue,
 		simcli.FlagEnabledValue,
 	)
-	if skip {
-		t.Skip("skipping application simulation after import")
-	}
 	require.NoError(t, err, "simulation setup failed")
 
 	defer func() {
 		require.NoError(t, db.Close())
 		require.NoError(t, os.RemoveAll(dir))
 	}()
-
-	appOptions := make(simtestutil.AppOptionsMap, 0)
-	appOptions[flags.FlagHome] = app.DefaultNodeHome
-	appOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
-
-	bApp := app.New(
-		logger,
-		db,
-		nil,
-		true,
-		map[int64]bool{},
-		app.DefaultNodeHome,
-		0,
-		app.MakeEncodingConfig(),
-		appOptions,
-		fauxMerkleModeOpt,
-		baseapp.SetChainID(config.ChainID),
-	)
-	require.Equal(t, app.Name, bApp.Name())
 
 	// run randomized simulation
 	stopEarly, simParams, simErr := simulation.SimulateFromSeed(
@@ -462,19 +373,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
-	newApp := app.New(
-		log.NewNopLogger(),
-		newDB,
-		nil,
-		true,
-		map[int64]bool{},
-		app.DefaultNodeHome,
-		0,
-		app.MakeEncodingConfig(),
-		appOptions,
-		fauxMerkleModeOpt,
-		baseapp.SetChainID(config.ChainID),
-	)
+	_, _, _, newApp := setupSimulationApp(t, "skipping application import/export simulation")
 	require.Equal(t, app.Name, bApp.Name())
 
 	newApp.InitChain(abci.RequestInitChain{
@@ -498,4 +397,28 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		bApp.AppCodec(),
 	)
 	require.NoError(t, err)
+}
+
+func setupSimulationApp(t *testing.T, msg string) (simtypes.Config, dbm.DB, simtestutil.AppOptionsMap, *app.App) {
+	config := simcli.NewConfigFromFlags()
+	config.ChainID = SimAppChainID
+
+	db, dir, logger, skip, err := simtestutil.SetupSimulation(config, "leveldb-app-sim", "Simulation", simcli.FlagVerboseValue, simcli.FlagEnabledValue)
+	if skip {
+		t.Skip(msg)
+	}
+	require.NoError(t, err, "simulation setup failed")
+
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+		require.NoError(t, os.RemoveAll(dir))
+	})
+
+	appOptions := make(simtestutil.AppOptionsMap, 0)
+	appOptions[flags.FlagHome] = dir // ensure a unique folder
+	appOptions[server.FlagInvCheckPeriod] = simcli.FlagPeriodValue
+
+	app := app.New(logger, db, nil, true, wasm.EnableAllProposals, appOptions, emptyWasmOpts, fauxMerkleModeOpt, baseapp.SetChainID(SimAppChainID))
+	require.Equal(t, "WasmApp", app.Name())
+	return config, db, appOptions, app
 }
