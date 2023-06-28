@@ -10,3 +10,8 @@ import (
 var (
 	ErrSample = sdkerrors.Register(ModuleName, 1100, "sample error")
 )
+
+var (
+	ErrCitizenAlreadyExist = sdkerrors.Register(ModuleName, 1101, "citizen already exist")
+	ErrCitizenNotFound     = sdkerrors.Register(ModuleName, 1102, "citizen not found")
+)

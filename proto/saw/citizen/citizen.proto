@@ -1,0 +1,15 @@
+syntax = "proto3";
+package saw.citizen;
+
+option go_package = "gitlab.com/onechain/saw/x/citizen/types";
+
+message Citizen {
+  
+  string saId = 1; 
+  string citizenCode = 2; 
+  string addressOwner = 3; 
+  string name = 4; 
+  uint64 createAt = 5; 
+  uint64 updateAt = 6; 
+  string avatarUrl = 7; 
+}

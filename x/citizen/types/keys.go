@@ -12,6 +12,9 @@ const (
 
 	// MemStoreKey defines the in-memory store key
 	MemStoreKey = "mem_citizen"
+
+	// CitizenKeyPrefix is the prefix to retrieve all Citizen
+	CitizenKeyPrefix = "citizen"
 )
 
 func KeyPrefix(p string) []byte {
