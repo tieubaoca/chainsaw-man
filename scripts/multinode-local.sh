@@ -40,7 +40,6 @@ cat $HOME/.saw/node0/config/genesis.json | jq '.app_state["crisis"]["constant_fe
 cat $HOME/.saw/node0/config/genesis.json | jq '.app_state["gov"]["deposit_params"]["min_deposit"][0]["denom"]="usae"' > $HOME/.saw/node0/config/tmp_genesis.json && mv $HOME/.saw/node0/config/tmp_genesis.json $HOME/.saw/node0/config/genesis.json
 cat $HOME/.saw/node0/config/genesis.json | jq '.app_state["mint"]["params"]["mint_denom"]="usae"' > $HOME/.saw/node0/config/tmp_genesis.json && mv $HOME/.saw/node0/config/tmp_genesis.json $HOME/.saw/node0/config/genesis.json
 
-# cat $HOME/.saw/node0/config/genesis.json | jq '.app_state["accounts"] += [{"@type": "/cosmos.auth.v1beta1.BaseAccount", "address": '$VAL2ADDRESS', "pub_key": null, "account_number": "1", "sequence": "1"}]' > $HOME/.saw/config/tmp_genesis.json && mv $HOME/.saw/config/tmp_genesis.json $HOME/.saw/config/genesis.json
 echo "Addresses: " $VAL1ADDRESS $VAL2ADDRESS $VAL3ADDRESS
 
 sawd add-genesis-account $VALIDATOR1 $BALANCE1 --keyring-backend $KEYRING --home $HOME/.saw/node0
@@ -49,8 +48,6 @@ sawd add-genesis-account $VALIDATOR3 $BALANCE1 --keyring-backend $KEYRING --home
 
 # Sign genesis transaction
 sawd gentx $VALIDATOR1 10000000usae --keyring-backend $KEYRING --chain-id $CHAINID --home $HOME/.saw/node0
-# sawd gentx $VALIDATOR2 10000000usae --keyring-backend $KEYRING --chain-id $CHAINID --home $HOME/.saw/node0
-# sawd gentx $VALIDATOR3 10000000usae --keyring-backend $KEYRING --chain-id $CHAINID --home $HOME/.saw/node0
 
 # Collect genesis tx
 sawd collect-gentxs --home $HOME/.saw/node0
@@ -58,52 +55,49 @@ sawd collect-gentxs --home $HOME/.saw/node0
 # Run this to ensure everything worked and that the genesis file is setup correctly
 sawd validate-genesis --home $HOME/.saw/node0
 
-# # cp -r $HOME/.saw $HOME/.saw/node0
-# # cp -r $HOME/.saw/node0 $HOME/.saw/node1
-# # cp -r $HOME/.saw/node0 $HOME/.saw/node2
-# # # change app.toml values
+# change app.toml values
 
 PEER=$(sawd tendermint show-node-id --home $HOME/.saw/node0)
 
 # validator 1
-sed -i -E 's|swagger = false|swagger = true|g' $HOME/.saw/node0/config/app.toml
+toml set --toml-path $HOME/.saw/node0/config/app.toml minimum-gas-prices "0usae"
+toml set --toml-path $HOME/.saw/node0/config/app.toml api.swagger true
+toml set --toml-path $HOME/.saw/node0/config/app.toml rosetta.denom-to-suggest "usae"
 
 # validator2
-sed -i -E 's|tcp://0.0.0.0:1317|tcp://0.0.0.0:1316|g' $HOME/.saw/node1/config/app.toml
-sed -i -E 's|0.0.0.0:9090|0.0.0.0:9088|g' $HOME/.saw/node1/config/app.toml
-sed -i -E 's|0.0.0.0:9091|0.0.0.0:9089|g' $HOME/.saw/node1/config/app.toml
-sed -i -E 's|swagger = false|swagger = true|g' $HOME/.saw/node1/config/app.toml
-sed -i -E 's|localhost:9090|localhost:9190|g' $HOME/.saw/node1/config/app.toml
-sed -i -E 's|localhost:9091|localhost:9191|g' $HOME/.saw/node1/config/app.toml
-toml set --toml-path $HOME/.saw/node1/config/config.toml p2p.persistent_peers "$PEER@0.0.0.0:26656"
+toml set --toml-path $HOME/.saw/node1/config/app.toml api.address "tcp://localhost:1316"
+toml set --toml-path $HOME/.saw/node1/config/app.toml grpc.address "0.0.0.0:9088"
+toml set --toml-path $HOME/.saw/node1/config/app.toml grpc-address "0.0.0.0:9089"
+toml set --toml-path $HOME/.saw/node1/config/app.toml minimum-gas-prices "0usae"
+toml set --toml-path $HOME/.saw/node1/config/app.toml api.swagger true
+toml set --toml-path $HOME/.saw/node1/config/app.toml rosetta.denom-to-suggest "usae"
 
 # validator3
-sed -i -E 's|tcp://0.0.0.0:1317|tcp://0.0.0.0:1315|g' $HOME/.saw/node2/config/app.toml
-sed -i -E 's|0.0.0.0:9090|0.0.0.0:9086|g' $HOME/.saw/node2/config/app.toml
-sed -i -E 's|0.0.0.0:9091|0.0.0.0:9087|g' $HOME/.saw/node2/config/app.toml
-sed -i -E 's|swagger = false|swagger = true|g' $HOME/.saw/node2/config/app.toml
-sed -i -E 's|localhost:9090|localhost:9290|g' $HOME/.saw/node2/config/app.toml
-sed -i -E 's|localhost:9091|localhost:9291|g' $HOME/.saw/node2/config/app.toml
-toml set --toml-path $HOME/.saw/node2/config/config.toml p2p.persistent_peers "$PEER@0.0.0.0:26656"
+toml set --toml-path $HOME/.saw/node2/config/app.toml api.address "tcp://localhost:1315"
+toml set --toml-path $HOME/.saw/node2/config/app.toml grpc.address "0.0.0.0:9086"
+toml set --toml-path $HOME/.saw/node2/config/app.toml grpc-address "0.0.0.0:9087"
+toml set --toml-path $HOME/.saw/node2/config/app.toml minimum-gas-prices "0usae"
+toml set --toml-path $HOME/.saw/node2/config/app.toml api.swagger true
+toml set --toml-path $HOME/.saw/node2/config/app.toml rosetta.denom-to-suggest "usae"
 
 # change config.toml values
 
 # validator1
-sed -i -E 's|allow_duplicate_ip = false|allow_duplicate_ip = true|g' $HOME/.saw/node0/config/config.toml
+toml set --toml-path $HOME/.saw/node0/config/config.toml p2p.allow_duplicate_ip true
 # validator2
-sed -i -E 's|tcp://127.0.0.1:26658|tcp://127.0.0.1:26655|g' $HOME/.saw/node1/config/config.toml
-sed -i -E 's|allow_duplicate_ip = false|allow_duplicate_ip = true|g' $HOME/.saw/node1/config/config.toml
-sed -i -E 's|tcp://localhost:26657|tcp://localhost:26757|g' $HOME/.saw/node1/config/client.toml
-sed -i -E 's|tcp://127.0.0.1:26657|tcp://127.0.0.1:26757|g' $HOME/.saw/node1/config/config.toml
-sed -i -E 's|tcp://0.0.0.0:26656|tcp://0.0.0.0:26756|g' $HOME/.saw/node1/config/config.toml
+toml set --toml-path $HOME/.saw/node1/config/config.toml proxy_app tcp://127.0.0.1:26655
+toml set --toml-path $HOME/.saw/node1/config/config.toml p2p.allow_duplicate_ip true
+toml set --toml-path $HOME/.saw/node1/config/config.toml rpc.laddr tcp://127.0.0.1:26757
+toml set --toml-path $HOME/.saw/node1/config/config.toml p2p.laddr tcp://0.0.0.0:26756
+toml set --toml-path $HOME/.saw/node1/config/config.toml p2p.persistent_peers "$PEER@0.0.0.0:26656"
 
 
 # validator3
-sed -i -E 's|tcp://127.0.0.1:26658|tcp://127.0.0.1:26652|g' $HOME/.saw/node2/config/config.toml
-sed -i -E 's|allow_duplicate_ip = false|allow_duplicate_ip = true|g' $HOME/.saw/node2/config/config.toml
-sed -i -E 's|tcp://localhost:26657|tcp://localhost:26857|g' $HOME/.saw/node2/config/client.toml
-sed -i -E 's|tcp://127.0.0.1:26657|tcp://127.0.0.1:26857|g' $HOME/.saw/node2/config/config.toml
-sed -i -E 's|tcp://0.0.0.0:26656|tcp://0.0.0.0:26856|g' $HOME/.saw/node2/config/config.toml
+toml set --toml-path $HOME/.saw/node2/config/config.toml proxy_app tcp://127.0.0.1:26652
+toml set --toml-path $HOME/.saw/node2/config/config.toml p2p.allow_duplicate_ip true
+toml set --toml-path $HOME/.saw/node2/config/config.toml rpc.laddr tcp://127.0.0.1:26857
+toml set --toml-path $HOME/.saw/node2/config/config.toml p2p.laddr tcp://0.0.0.0:26856
+toml set --toml-path $HOME/.saw/node2/config/config.toml p2p.persistent_peers "$PEER@0.0.0.0:26656"
 
 
 
@@ -151,8 +145,6 @@ sawd tx staking create-validator \
     --pubkey=$(sawd tendermint show-validator --home=$HOME/.saw/node2)\
     -y
 
-# sawd tx bank send $VALIDATOR1 $VAL2ADDRESS 100000000000usae --keyring-backend=$KEYRING --chain-id=$CHAINID -y --home=$HOME/.saw/node0
-# sawd tx bank send $VALIDATOR1 $VAL3ADDRESS 100000000000usae --keyring-backend=$KEYRING --chain-id=$CHAINID -y --home=$HOME/.saw/node0
 # echo $(sawd keys show $VALIDATOR1 -a --keyring-backend=test --home=$HOME/.saw/node0)
 # echo $(sawd keys show $VALIDATOR1 -a --keyring-backend=test --home=$HOME/.saw/node1)
 # echo $(sawd keys show $VALIDATOR1 -a --keyring-backend=test --home=$HOME/.saw/node2)
