@@ -15,6 +15,7 @@ SEED3="candy spice suit select scan gossip silver lens dwarf subway spice sword 
 
 rm -rf $HOME/.saw/
 killall screen
+killall sawd
 # make install
 
 sawd config keyring-backend $KEYRING
