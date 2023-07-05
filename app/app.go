@@ -130,6 +130,7 @@ import (
 	citizenmodule "gitlab.com/onechain/saw/x/citizen"
 	citizenmodulekeeper "gitlab.com/onechain/saw/x/citizen/keeper"
 	citizenmoduletypes "gitlab.com/onechain/saw/x/citizen/types"
+
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	"gitlab.com/onechain/saw/docs"
@@ -235,6 +236,7 @@ var (
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		nft.ModuleName:                 nil,
+		ibcfeetypes.ModuleName:         nil,
 		wasm.ModuleName:                {authtypes.Burner}, //wasm
 		citizenmoduletypes.ModuleName:  {authtypes.Minter, authtypes.Burner, authtypes.Staking},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
@@ -344,12 +346,15 @@ func New(
 	bApp.SetTxEncoder(txConfig.TxEncoder())
 
 	keys := sdk.NewKVStoreKeys(
-		authtypes.StoreKey, authz.ModuleName, banktypes.StoreKey, stakingtypes.StoreKey,
-		crisistypes.StoreKey, minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
-		govtypes.StoreKey, paramstypes.StoreKey, ibcexported.StoreKey, upgradetypes.StoreKey,
-		feegrant.StoreKey, evidencetypes.StoreKey, ibctransfertypes.StoreKey, icahosttypes.StoreKey,
-		capabilitytypes.StoreKey, group.StoreKey, icacontrollertypes.StoreKey, consensusparamtypes.StoreKey,
-		nft.StoreKey, wasm.StoreKey,
+		authtypes.StoreKey, banktypes.StoreKey, stakingtypes.StoreKey, crisistypes.StoreKey,
+		minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
+		govtypes.StoreKey, paramstypes.StoreKey, consensusparamtypes.StoreKey, upgradetypes.StoreKey, feegrant.StoreKey,
+		evidencetypes.StoreKey, capabilitytypes.StoreKey,
+		authzkeeper.StoreKey, nftkeeper.StoreKey, group.StoreKey,
+		// non sdk store keys
+		ibcexported.StoreKey, ibctransfertypes.StoreKey, ibcfeetypes.StoreKey,
+		wasm.StoreKey, icahosttypes.StoreKey,
+		icacontrollertypes.StoreKey,
 		citizenmoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
@@ -502,6 +507,7 @@ func New(
 	// ... other modules keepers
 
 	// Create IBC Keeper
+
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec, keys[ibcexported.StoreKey],
 		app.GetSubspace(ibcexported.ModuleName),
@@ -509,7 +515,13 @@ func New(
 		app.UpgradeKeeper,
 		scopedIBCKeeper,
 	)
-
+	// IBC Fee Module keeper
+	app.IBCFeeKeeper = ibcfeekeeper.NewKeeper(
+		appCodec, keys[ibcfeetypes.StoreKey],
+		app.IBCKeeper.ChannelKeeper, // may be replaced with IBC middleware
+		app.IBCKeeper.ChannelKeeper,
+		&app.IBCKeeper.PortKeeper, app.AccountKeeper, app.BankKeeper,
+	)
 	// Create Transfer Keepers
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
@@ -762,6 +774,7 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		nft.ModuleName,
+		// additional non simd modules
 		ibcfeetypes.ModuleName,
 		wasm.ModuleName,
 		citizenmoduletypes.ModuleName,
@@ -791,8 +804,11 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		nft.ModuleName,
+
+		// additional non simd modules
 		ibcfeetypes.ModuleName,
 		wasm.ModuleName,
+
 		citizenmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
@@ -825,8 +841,9 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		nft.ModuleName,
-		ibcfeetypes.ModuleName,
+		// additional non simd modules
 		wasm.ModuleName,
+		ibcfeetypes.ModuleName,
 		citizenmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
